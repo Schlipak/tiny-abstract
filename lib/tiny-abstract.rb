@@ -28,6 +28,8 @@ class Class
     obj
   end
 
+  @@_whitelist ||= []
+
   CLASS_BLACKLIST ||= [
     Array, Hash,
     String, StringIO, Symbol,
@@ -59,6 +61,7 @@ class Class
     unless self.send :check_blacklist
       raise TinyAbstract::Error.new, "Cannot make blacklisted #{self} class abstract"
     end
+    @@_whitelist << self
     update = (syms.first != false)
     @_abstract_methods ||= Array.new
     return unless syms.respond_to? :each
@@ -88,7 +91,7 @@ class Class
   end
 
   ##
-  # Checks if the class is abstract
+  # Checks if the class is abstract.
   #
   # * *Returns* :
   #   - +TrueClass+ | +FalseClass+ ➞ Whether or not the class is abstract
@@ -104,7 +107,9 @@ class Class
 
   private
   ##
-  # Checks if the class is allowed to hold abstract methods
+  # Checks if the class is allowed to hold abstract methods.
+  # This rejects blacklisted classes such as some
+  # base Ruby classes.
   #
   # * *Args*    :
   #   - +strict+ ➞ +TrueClass+ | +FalseClass+ Perform a strict check (default +false+)
@@ -125,10 +130,22 @@ class Class
   end
 
   ##
+  # Checks if the class is allowed to perform abstraction checks.
+  # This includes any class that has registered abstract methods,
+  # and all of its descendants.
+  #
+  # * *Returns* :
+  #   - +TrueClass+ | +FalseClass+ ➞ Whether or not the class is allowed to perform abstraction checks
+  #
+  def check_whitelist
+    not (@@_whitelist & self.ancestors).empty?
+  end
+
+  ##
   # Inherits the superclass' abstract methods
   #
   def inherit_abstract
-    return unless self.send(:check_blacklist, true)
+    return unless self.send(:check_whitelist)
     self.abstract(
       *[false, self.superclass.abstract_methods].flatten
     )
